@@ -7,7 +7,8 @@ output:
     keep_md: yes
 ---
 
-```{r setup, warning=FALSE, message=FALSE}
+
+```r
 library(readr)
 library(dplyr)
 library(caret)
@@ -28,7 +29,8 @@ set.seed(42)
 ###Data processing
 
 #####Load datasets
-```{r load_ds, results='hide'}
+
+```r
 rd.file <- "./Datasets.RData"
 if (file.exists(rd.file)) {
      load(file = rd.file, verbose = TRUE)
@@ -72,22 +74,51 @@ rm(rd.file)
 ```
 
 #####Data overview
-```{r ds_overvw}
+
+```r
 #variables class
 map_chr(test.df, class) %>% table()
+```
 
+```
+## .
+## character    factor   numeric 
+##         5         2       152
+```
+
+```r
 dim(train.df)
+```
+
+```
+## [1] 19622   159
+```
+
+```r
 dim(test.df)
+```
 
+```
+## [1]  20 159
+```
+
+```r
 levels(train.df$classe)
+```
 
+```
+## [1] "A" "B" "C" "D" "E"
+```
+
+```r
 #map_int(train.df, function(x) sum(is.na(x))) %>% keep(~.>0)
 #map_int(test.df, function(x) sum(is.na(x))) %>% keep(~.>0)
 ```
 
 #####Create custom datasets
 Create xy datasets and drop all non-numeric variables.
-```{r subset_1}
+
+```r
 train.x <- select_if(train.df, is.numeric)
 train.y <- train.df$classe
 
@@ -106,7 +137,8 @@ test.x <- select_if(test.df, is.numeric)
 2. apply median or kNN imputation method for remaining variables
 3. identify near zero-variance variables and drop them too
 
-```{r na_handle}
+
+```r
 #proportions of missing values in each variable
 train.na.prop <- train.x %>% 
      map_dbl(~mean(is.na(.))) %>% 
@@ -114,33 +146,74 @@ train.na.prop <- train.x %>%
      as_tibble() %>% 
      tibble::rownames_to_column()
 nrow(train.na.prop)
+```
 
+```
+## [1] 100
+```
+
+```r
 test.na.prop <- test.x %>% 
      map_dbl(~mean(is.na(.))) %>% 
      keep(~.>0) %>% 
      as_tibble() %>% 
      tibble::rownames_to_column()
 nrow(test.na.prop)
+```
 
+```
+## [1] 100
+```
+
+```r
 train.x <- select(train.x, -one_of(filter(train.na.prop, value>0.6)$rowname))
 test.x <- select(test.x, -one_of(filter(test.na.prop, value>0.6)$rowname))
 
 train.x %>% map_dbl(~mean(is.na(.))) %>% keep(~.>0)
-test.x %>% map_dbl(~mean(is.na(.))) %>% keep(~.>0)
+```
 
+```
+## named numeric(0)
+```
+
+```r
+test.x %>% map_dbl(~mean(is.na(.))) %>% keep(~.>0)
+```
+
+```
+## named numeric(0)
+```
+
+```r
 #no NA after 1st step, skip step 2
 
 #show nzv columns
 nearZeroVar(train.x, saveMetrics = TRUE) %>% tibble::rownames_to_column() %>% filter(zeroVar | nzv)
-nearZeroVar(test.x, saveMetrics = TRUE) %>% tibble::rownames_to_column() %>% filter(zeroVar | nzv)
+```
 
+```
+## [1] rowname       freqRatio     percentUnique zeroVar       nzv          
+## <0 rows> (or 0-length row.names)
+```
+
+```r
+nearZeroVar(test.x, saveMetrics = TRUE) %>% tibble::rownames_to_column() %>% filter(zeroVar | nzv)
+```
+
+```
+## [1] rowname       freqRatio     percentUnique zeroVar       nzv          
+## <0 rows> (or 0-length row.names)
+```
+
+```r
 #nothing to drop 
 rm(train.na.prop)
 rm(test.na.prop)
 ```
 
 #####Separate training dataset into 80/20 training and validation datasets
-```{r valid_ds}
+
+```r
 index.train <- createDataPartition(train.df$classe, p=0.8, list=FALSE)
 train.x <- train.x[index.train,]
 train.y <- train.y[index.train]
@@ -159,7 +232,8 @@ Cause our variable of interest is categorical variable with five classes our tas
 In my project I used only `Decision trees` and `Random Forests`.
 
 Fit decision tree with 10-fold cross-validation :
-```{r dectree_fit, warning=FALSE, message=FALSE}
+
+```r
 model.dtree <- train(x = train.x, 
                      y = train.y, 
                      method = "rpart", 
@@ -171,20 +245,87 @@ model.dtree <- train(x = train.x,
 model.dtree
 ```
 
+```
+## CART 
+## 
+## 15699 samples
+##    52 predictor
+##     5 classes: 'A', 'B', 'C', 'D', 'E' 
+## 
+## No pre-processing
+## Resampling: Cross-Validated (10 fold) 
+## Summary of sample sizes: 14129, 14129, 14130, 14128, 14130, 14130, ... 
+## Resampling results across tuning parameters:
+## 
+##   cp          Accuracy   Kappa    
+##   0.01388518  0.6777541  0.5933957
+##   0.01548732  0.6711275  0.5854052
+##   0.01851357  0.6599140  0.5718127
+##   0.01931464  0.6532903  0.5638714
+##   0.02064976  0.6365381  0.5435025
+##   0.02176235  0.6005523  0.4915915
+##   0.02839341  0.5274274  0.3835323
+##   0.03702715  0.4997801  0.3464546
+##   0.05978341  0.4247940  0.2246296
+##   0.11401869  0.3231979  0.0592089
+## 
+## Accuracy was used to select the optimal model using the largest value.
+## The final value used for the model was cp = 0.01388518.
+```
+
 Plot model:
-```{r dectree_plot, warning=FALSE, message=FALSE}
+
+```r
 prp(model.dtree$finalModel, box.palette = "Reds", branch = 1)
 ```
 
+![](course_project_files/figure-html/dectree_plot-1.png)<!-- -->
+
 Prediction:
-```{r dectree_pred, warning=FALSE, message=FALSE}
+
+```r
 predicted.model.dtree <- predict(model.dtree, newdata = validation.x)
 confusionMatrix(predicted.model.dtree, validation.y)
 ```
 
+```
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction   A   B   C   D   E
+##          A 685 113   7  46  17
+##          B  17 301  51  12  37
+##          C  65  81 424  73  61
+##          D 102  84  64 368  98
+##          E  14  17  15  22 363
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.6825          
+##                  95% CI : (0.6659, 0.6988)
+##     No Information Rate : 0.2815          
+##     P-Value [Acc > NIR] : < 2.2e-16       
+##                                           
+##                   Kappa : 0.5999          
+##  Mcnemar's Test P-Value : < 2.2e-16       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.7758  0.50503   0.7558   0.7063   0.6302
+## Specificity            0.9188  0.95396   0.8913   0.8670   0.9734
+## Pos Pred Value         0.7892  0.72010   0.6023   0.5140   0.8422
+## Neg Pred Value         0.9127  0.89150   0.9437   0.9368   0.9213
+## Prevalence             0.2815  0.18999   0.1788   0.1661   0.1836
+## Detection Rate         0.2184  0.09595   0.1352   0.1173   0.1157
+## Detection Prevalence   0.2767  0.13325   0.2244   0.2282   0.1374
+## Balanced Accuracy      0.8473  0.72949   0.8235   0.7867   0.8018
+```
+
 
 Random forests
-```{r rf_fit, warning=FALSE, message=FALSE}
+
+```r
 # model.rf <- train(x = train.x, 
 #                   y = train.y, 
 #                   method = "ranger", 
