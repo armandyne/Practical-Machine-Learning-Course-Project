@@ -185,11 +185,20 @@ confusionMatrix(predicted.model.dtree, validation.y)
 
 Random forests
 ```{r rf_fit, warning=FALSE, message=FALSE}
-# model.rf <- train(x = train.x, 
-#                   y = train.y, 
-#                   method = "ranger", 
-#                   trControl = trainControl(method = "cv", 
-#                                            number = 5))
-# 
-# model.rf
+model.rf <- train(x = train.x,
+                  y = train.y,
+                  method = "rf",
+                  trControl = trainControl(method = "cv",
+                                           number = 10),
+                  tuneGrid = expand.grid(.mtry=7),
+                  allowParallel=TRUE)
+
+model.rf
+
+predicted.model.rf <- predict(model.rf, newdata = validation.x)
+confusionMatrix(predicted.model.rf, validation.y)
+```
+
+```{r}
+predict(model.rf, newdata = test.x)
 ```
